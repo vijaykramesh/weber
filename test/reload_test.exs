@@ -23,7 +23,7 @@ defmodule Weber.Reload.Test do
   test "reload files" do
     assert Weber.Foo.foo == 1
     assert Bar.bar == 1
-    
+
     #Check if not update file yet
     assert Weber.Reload.purge == :ok
 
