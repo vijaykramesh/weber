@@ -1,5 +1,5 @@
 defmodule Cowboy do
-    
+
   @moduledoc """
     Weber's weber server.
   """
@@ -16,7 +16,7 @@ defmodule Cowboy do
     :application.start(:ranch)
     :application.start(:cowlib)
     :application.start(:cowboy)
-        
+
     {:webserver, web_server_config} = :lists.keyfind(:webserver, 1, config)
     {_, _host}     = :lists.keyfind(:http_host, 1, web_server_config)
     {_, port}      = :lists.keyfind(:http_port, 1, web_server_config)
@@ -29,12 +29,12 @@ defmodule Cowboy do
 
     {:ws, ws_config} = :lists.keyfind(:ws, 1, config)
     {_, ws_mod}  = :lists.keyfind(:ws_mod, 1, ws_config)
-          
+
     dispatch = :cowboy_router.compile([{:_, [{'/_ws', Handler.WeberWebSocketHandler, ws_mod}, 
                                              {'/[...]', Handler.WeberReqHandler, config}]}])
 
     case ssl do
-      true -> 
+      true ->
         {_, cacertifile} = :lists.keyfind(:cacertfile_path, 1, web_server_config)
         {_, certfile} = :lists.keyfind(:certfile_path, 1, web_server_config)
         {_, keyfile} = :lists.keyfind(:keyfile_path, 1, web_server_config)
@@ -45,5 +45,14 @@ defmodule Cowboy do
         {:ok, _} = :cowboy.start_http(:http, acceptors, [port: port], [env: [dispatch: dispatch],
                                                                        compress: compress])
     end
+  end
+
+  @doc """
+  Stop Cowboy's server
+  """
+  def shutdown do
+    :cowboy.stop_listener(:http)
+    :cowboy.stop_listener(:https)
+    :ok
   end
 end
