@@ -21,18 +21,25 @@ Weber - is a MVC Web framework for [Elixir](http://elixir-lang.org/).
  * Web controller Helpers.
  * i18n support;
  * Sessions support;
+ * Grunt integration;
 
 ## Quick start
 
  1. Get and install Elixir from master.
  2. Clone this repository.
  3. Execute `make && make test` in the weber directory.
- 6. Create new project with: `mix weber.new /home/user/testWebApp`
+ 6. Create new project with: `mix weber.new /home/user/testWebApp` or `mix weber.new /home/user/testWebApp --grunt` for Grunt integration.
 
 Now go to the `/home/user/testWebApp` and execute there: `mix deps.get && mix compile --all --force`. Then you can try to run your testWeberApplication with:
 
 ```
 ./start.sh
+```
+
+or run it in daemon mode:
+
+```
+./start.sh --no-shell
 ```
 
 and go to the [http://localhost:8080/](http://localhost:8080/)
@@ -60,6 +67,8 @@ Routing declaration is in `route.ex` files:
 ```elixir
     route on("GET", "/", :Simpletodo.Main, :action)
        |> on("POST", "/add/:note", :Simpletodo.Main, :add)
+       |> redirect("GET", "/redirect", "/weber")
+       |> on("ANY", %r{/hello/([\w]+)}, :Simpletodo.Main, :action)
 ```
 
 Also `on` supports following syntax:
@@ -83,6 +92,20 @@ Http method can be:
   * `"PUT"`
   * `"DELETE"`
   * `"ANY"`
+
+### Build url from code
+
+You can build url from your `elixir` code with:
+
+```elixir
+import Weber.Route
+
+route on("GET", "/", "Simpletodo.Main#action")
+   |> on("POST", "/add/:note", "Simpletodo.Main#add")
+
+# generates: /add/1 
+link(:Elixir.Simpletodo.Main, :add, [note: 1])
+```
 
 ## Controllers
 
@@ -116,12 +139,13 @@ Every controller's action passes 2 parameters:
 
 Controller can return:
 
-  * `{:render, [project: "simpleTodo"], [{"HttpHeaderName", "HttpHeaderValheaderVal"}]}` - Render views with the same name as controller and sends it to response.
-  * `{:render_inline, "foo <%= bar %>", [bar: "baz"]}, []}` - Render inline template.
-  * `{:file, path, headers}` - Send file in response.
-  * `{:json, [response: "ok"], [{"HttpHeaderName", "HttpHeaderValheaderVal"}]}` - Weber convert keyword to json and sends it to response.
+  * `{:render, [project: "simpleTodo"], [{"HttpHeaderName", "HttpHeaderValheaderVal"}]}` - Render views with the same name as controller and sends it to response. Or without headers. `{:render, [project: "simpleTodo"]}`
+  * `{:render_inline, "foo <%= bar %>", [bar: "baz"]}}` - Render inline template.
+  * `{:render_other, Elixir.Views.Index, [foo: "foo"], []}` - Render any view in controller. Or without headers.
+  * `{:file, path, headers}` - Send file in response. Or without headers `{:file, path}`
+  * `{:json, [response: "ok"], [{"HttpHeaderName", "HttpHeaderValheaderVal"}]}` - Weber convert keyword to json and sends it to response. Or without headers: `{:json, [response: "ok"]}`
   * `{:redirect, "/main"}` - Redirect to other resource.
-  * `{:text, data, headers}` - Sends plain text.
+  * `{:text, data, headers}` - Sends plain text. Or without headers: `{:text, data}`
   * `{:nothing, ["Cache-Control", "no-cache"]}` - Sends empty response with status `200` and headers.
 
 ## Request params
@@ -143,7 +167,7 @@ defmodule Simplechat.Main.Login do
     #
     # Do something with param
     #
-    {:render, [project: "SimpleChat"], []}
+    {:render, [project: "SimpleChat"]}
   end
 
 end
@@ -163,7 +187,7 @@ defmodule Simplechat.Main.Login do
     #
     # Do something with param
     #
-    {:render, [project: "SimpleChat", name: name], []}
+    {:render, [project: "SimpleChat", name: name]}
   end
 
 end
@@ -285,42 +309,57 @@ video(["/public/videos/video1", "/public/videos/video2"], [height: 48, width: 48
 ## Controller Helpers
 
 #### `content_for_layout` and `layout`
+
+**NOTE: Now all `views` and `layout` files must start with capital letter.**
+
 All controllers got `main.html` by default for views, but you'd might change it.
-Create `layouts` folder in `views/` in inside put:
+
+You can create custom `layout` for you controller:
+
+Create `Layout.html` in the `lib/views/layouts` directory and put there:
 
 ```HTML
-<%= content_for_layout %>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>
+      My Project
+    </title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8" />
+  </head>
+  <body>
+    <div id="container">
+    <%= content_for_layout %>      
+    </div>
+  </body>
+</html> 
 ```
 
-Declare `layout` helper in your controller:
+Than declare `layout` helper in your controller:
 
 ```elixir
 defmodule TestController.Main do
 
   use Weber.Controller
 
-  layout 'Layout.html'
+  layout "Layout.html"
   
-  ....        
+  #
+  # Here are some actions
+  #
+
 end
 
 ```
 
-or
-
-```elixir
-defmodule TestController.Main do
-
-  use Weber.Controller
-
-  layout false
-  
-  ....        
-end
+And you have `lib/views/Main.html` with:
 
 ```
+Hello World!
+```
 
-template from current view will render in `Layout.html` instead `<%= content_for_layout %>`
+Weber puts `lib/views/Main.html` content instead `<%= content_for_layout %> ` and you will
+get it in the response.
 
 ## Internationalization
 

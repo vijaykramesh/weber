@@ -1,6 +1,16 @@
 #### Weber-0.0.5 [In progress]
 
   * #112 fix. Compile now with `mix compile --all --force`
+  * `render_other` in response added.
+  * Added ability to test Weber based web applications
+  * Running Weber in daemon mode.
+  * `headers` not required field in response.
+  * Initial `Grunt` integration.
+  * #115. Reverse Routing.
+  * #118. Redirect in routing.
+  * Regular expression in the routing.
+  * #122. `content_for_layout` fixed.
+  * New github pages
 
 #### Weber-0.0.4 [Released]
 

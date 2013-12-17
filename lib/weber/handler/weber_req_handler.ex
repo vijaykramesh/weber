@@ -1,5 +1,5 @@
 defmodule Handler.WeberReqHandler do
-    
+
   @moduledoc """
     Weber http request cowboy handler.
   """
@@ -10,14 +10,14 @@ defmodule Handler.WeberReqHandler do
   import Weber.Http.Url
 
   import Plug.Connection
-  
+
   import Handler.Weber404Handler
   import Handler.WeberReqHandler.Result
   import Handler.WeberReqHandler.Response
 
   @connection Plug.Adapters.Cowboy.Connection
 
-  defrecord State, 
+  defrecord State,
     config: nil
 
   def init({:tcp, :http}, req, config) do
@@ -27,15 +27,16 @@ defmodule Handler.WeberReqHandler do
   def handle(req, state) do
     conn = @connection.conn(req, :tcp)
     conn = assign(conn, :req, req)
-        
+
     # get path
     {path, req2} = :cowboy_req.path(req)
-        
+
     # match routes
     case :lists.flatten(match_routes(path, Weber.Path.__route__, conn.method)) do
       [] ->
-        # Get static file or page not found
         try_to_find_static_resource(path) |> handle_result |> handle_request(req2, state)
+      [{:method, _method}, {:path, _matched_path}, {:redirect_path, redirect_path}] ->
+        {:redirect, redirect_path} |> handle_result |> handle_request(req2, state)
       [{:method, _method}, {:path, matched_path}, {:controller, controller}, {:action, action}] ->
         req3 = case Keyword.get(state.config, :use_sessions) do
           true ->
@@ -68,7 +69,7 @@ defmodule Handler.WeberReqHandler do
             # check 'lang' process
             locale_process = Process.whereis(binary_to_atom(lang <> ".json"))
             case locale_process do
-              nil -> 
+              nil ->
                 case File.read(Weber.Path.__root__ <> "/deps/weber/lib/weber/i18n/localization/locale/" <> lang <> ".json") do
                   {:ok, locale_data} -> Weber.Localization.Locale.start_link(binary_to_atom(lang <> ".json"), locale_data)
                   _ -> :ok
@@ -77,10 +78,10 @@ defmodule Handler.WeberReqHandler do
             end
             # update accept language
             set_session_val(conn, :locale, lang)
-          _ -> 
+          _ ->
             :ok
         end
-        
+
         # get response from controller
         result = Module.function(controller, action, 2).(getAllBinding(path, matched_path), conn)
         # handle controller's response, see in Handler.WeberReqHandler.Result
@@ -101,9 +102,24 @@ defmodule Handler.WeberReqHandler do
       [] ->
         {:not_found, get404, []}
       [resource_name] ->
-        {:file, resource_name, []}
+        {:file, resource_name, [{"content-type", get_mime_type(resource_name)}]}
     end
-  
+  end
+
+  #
+  # Get mimetype
+  #
+  defp get_mime_type(resource) do
+    case :filename.extension(resource) do
+      '.css' -> "text/css"
+      '.gif' -> "image/gif"
+      '.html' -> "text/html"
+      '.htm' -> "text/html"
+      '.ico' -> "image/x-icon"
+      '.jpeg' -> "image/jpeg"
+      '.js' -> "application/javascript"
+      _ -> "application/octet-stream"
+    end
   end
 
   #

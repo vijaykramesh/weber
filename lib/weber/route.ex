@@ -13,6 +13,8 @@ defmodule Weber.Route do
   """
 
   import String
+
+  import Weber.Utils
   import Weber.Http.Url
 
   defmacro route(routeList) do
@@ -21,6 +23,25 @@ defmodule Weber.Route do
         unquote(routeList)
       end
     end
+  end
+
+  def link(controller, action, bindings // []) do
+    routes_with_same_controller = Enum.filter(Route.__route__, 
+      fn(route) ->
+        :lists.member({:controller, controller}, route) 
+      end)
+    routes_with_same_action = Enum.filter(routes_with_same_controller, 
+      fn(route) ->
+        :lists.member({:action, action}, route) 
+      end) |> Enum.at(0)
+    parsed_route = getBinding(Keyword.get(routes_with_same_action, :path))
+    List.foldl(parsed_route, "", 
+      fn({type, value}, acc) ->
+        case type do
+          :segment -> acc <> "/" <> value
+          :binding -> acc <> "/" <> to_bin(Keyword.get(bindings, binary_to_atom(value)))
+        end
+      end)
   end
 
   @doc """
@@ -48,6 +69,17 @@ defmodule Weber.Route do
   def on(routesList, method, path, controller, action) do
     :lists.append(routesList, [[method: method, path: path, controller: controller, action: action]])
   end
+
+  @doc """
+    Create redirect path
+  """
+  def redirect(method, path, redirect_path) do
+    [[method: method, path: path, redirect_path: redirect_path]]
+  end
+
+  def redirect(routesList, method, path, redirect_path) do
+    :lists.append(routesList, [[method: method, path: path, redirect_path: redirect_path]])
+  end
   
   @doc """
     Match current url path. Is it web application route or not
@@ -56,19 +88,34 @@ defmodule Weber.Route do
     parsed_path = getBinding(path)
 
     Enum.filter(routes, 
-      fn(route) -> 
-        [method: method, path: p, controller: _controller, action: _action] = route
-          case p do
-            "404" ->
-              false
-            _ ->
-              parsed_route_path = getBinding(p)
-              case method do
-                "ANY" -> match_routes_helper(parsed_path, parsed_route_path)
-                _ -> (match_routes_helper(parsed_path, parsed_route_path) and (req_method == method))
-              end
+      fn(route) ->
+        case route do
+          [method: method, path: p, controller: _controller, action: _action] ->
+            case is_regex(p) do
+              true ->
+                case method do
+                  "ANY" -> match_routes_regex_helper(p, path)
+                  _ -> (match_routes_regex_helper(p, path) and (req_method == method))
+                end
+              false ->
+                parsed_route_path = getBinding(p)
+                case method do
+                  "ANY" -> match_routes_helper(parsed_path, parsed_route_path)
+                  _ -> (match_routes_helper(parsed_path, parsed_route_path) and (req_method == method))
+                end
+            end
+          [method: method, path: p, redirect_path: redirect_path] ->
+            parsed_route_path = getBinding(p)
+            case method do
+              "ANY" -> match_routes_helper(parsed_path, parsed_route_path)
+              _ -> (match_routes_helper(parsed_path, parsed_route_path) and (req_method == method))
+            end
           end
       end)
+  end
+
+  defp match_routes_regex_helper(path, regex) do
+    Regex.match?(path, regex)
   end
   
   defp match_routes_helper([], []) do
