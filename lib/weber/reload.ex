@@ -30,7 +30,7 @@ defmodule Weber.Reload do
   def handle_call(:purge_modules, _from, Config[root_path: root_path, load_modules: load_modules, load_time: load_time] = config) do
     paths = Path.wildcard(root_path <> "/**/*.ex") -- Path.wildcard(root_path <> "/templates/**/*.ex")
     last_file_update = Enum.reduce(paths, load_time, &(last_file_reload_time(&1, &2)))
-    
+
     if load_time == last_file_update do
       {:reply, :ok, config}
     else
