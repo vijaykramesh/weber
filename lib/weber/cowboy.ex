@@ -45,6 +45,7 @@ defmodule Cowboy do
         {:ok, _} = :cowboy.start_http(:http, acceptors, [port: port], [env: [dispatch: dispatch],
                                                                        compress: compress])
     end
+    
   end
 
   @doc """
@@ -55,4 +56,5 @@ defmodule Cowboy do
     :cowboy.stop_listener(:https)
     :ok
   end
+
 end
